@@ -51,6 +51,7 @@ class SocksSocket with StreamMixin<Uint8List>, SocketMixin, ByteReader {
   @override
   Stream<Uint8List> get stream => _broadcast ??= socket.asBroadcastStream();
 
+  /// Initialize a SOCKS connection using IP address
   @internal
   static Future<SocksClientInitializeResult> initialize(
     List<ProxySettings> proxies,
@@ -88,6 +89,58 @@ class SocksSocket with StreamMixin<Uint8List>, SocketMixin, ByteReader {
       }
 
       await client._handleCommand(address, port, type);
+
+      final response = await client._handleCommandResponse(type);
+
+      return SocksClientInitializeResult(client, response);
+    } on ByteReaderException catch (error, stackTrace) {
+      socket.close().ignore();
+      throw SocksClientConnectionClosedException((
+        error: error,
+        stackTrace: stackTrace,
+      ));
+    }
+  }
+
+  /// Initialize a SOCKS connection using domain name (with remote DNS resolution)
+  @internal
+  static Future<SocksClientInitializeResult> initializeWithDomain(
+    List<ProxySettings> proxies,
+    String hostname,
+    int port,
+    SocksConnectionType type,
+  ) async {
+    if (proxies.isEmpty) {
+      throw ArgumentError.value(proxies, 'proxies', 'empty');
+    }
+
+    final socket = await Socket.connect(proxies.first.host, proxies.first.port);
+
+    final client = SocksSocket.protected(socket, type);
+
+    try {
+      await client._handshake(proxies.first);
+
+      for (var i = 1; i < proxies.length; i++) {
+        await client._handleCommand(
+          proxies[i].host,
+          proxies[i].port,
+          SocksConnectionType.connect,
+        );
+        final response = await client._handleCommandResponse(
+          SocksConnectionType.connect,
+        );
+        if (response.address != InternetAddress('0.0.0.0') ||
+            response.port != 0) {
+          throw UnimplementedError(
+            'Connect associated proxy not yet implemented.',
+          );
+        }
+        await client._handshake(proxies[i]);
+      }
+
+      // Use the domain-specific command method instead
+      await client._handleCommandWithDomain(hostname, port, type);
 
       final response = await client._handleCommandResponse(type);
 
@@ -186,14 +239,30 @@ class SocksSocket with StreamMixin<Uint8List>, SocketMixin, ByteReader {
     }
   }
 
-  /// Handle socks command.
+  /// Handle socks command with IP address.
   Future<void> _handleCommand(
-    InternetAddress targetAddress,
+    dynamic targetAddress,
     int targetPort,
     SocksConnectionType type,
   ) async {
-    final addressType = AddressType.internetAddressTypeMap[targetAddress.type]!;
-    final rawAddress = targetAddress.rawAddress;
+    // Support for both InternetAddress and String (IP address)
+    InternetAddress address;
+    if (targetAddress is InternetAddress) {
+      address = targetAddress;
+    } else if (targetAddress is String) {
+      // Try to parse as IP address
+      try {
+        address = InternetAddress(targetAddress);
+      } catch (_) {
+        // If it's not an IP address, throw error - this method is for IP addresses only
+        throw ArgumentError('targetAddress must be an IP address');
+      }
+    } else {
+      throw ArgumentError('targetAddress must be an InternetAddress or String');
+    }
+
+    final addressType = AddressType.internetAddressTypeMap[address.type]!;
+    final rawAddress = address.rawAddress;
 
     add(
       Uint8List.fromList([
@@ -204,6 +273,29 @@ class SocksSocket with StreamMixin<Uint8List>, SocketMixin, ByteReader {
         // Encoding address, if domain adding length at the beginning.
         if (addressType == AddressType.domain) rawAddress.length,
         ...rawAddress,
+        // Encoding port as big endian short.
+        (targetPort & 0xff00) >> 8, targetPort & 0x00ff,
+      ]),
+    );
+    await flush();
+  }
+
+  /// Handle socks command with domain name (for remote DNS resolution).
+  Future<void> _handleCommandWithDomain(
+    String hostname,
+    int targetPort,
+    SocksConnectionType type,
+  ) async {
+    final domainBytes = utf8.encode(hostname);
+
+    add(
+      Uint8List.fromList([
+        0x05, // Socks version.
+        type.byte, // Socks connection type.
+        0x00, // Reserved
+        AddressType.domain.byte, // Domain address type
+        domainBytes.length, // Domain name length
+        ...domainBytes, // Domain name bytes
         // Encoding port as big endian short.
         (targetPort & 0xff00) >> 8, targetPort & 0x00ff,
       ]),
