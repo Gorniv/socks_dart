@@ -2,7 +2,6 @@ import 'dart:io';
 
 import '../enums/socks_connection_type.dart';
 import '../shared/proxy_settings.dart';
-import '../address_type.dart';
 import 'socks_client.dart';
 
 /// [Socket] wrapper for socks TCP connection.
@@ -33,14 +32,26 @@ class SocksTCPClient extends SocksSocket {
     void Function(String line)? keyLog,
     List<String>? supportedProtocols,
     bool remoteDnsResolution = false,
+    bool resolveProxyHostname = true,
   }) {
     httpClient.connectionFactory = (uri, proxyHost, proxyPort) async {
+      // Копируем список прокси, чтобы не менять исходный
+      final resolvedProxies = List<ProxySettings>.from(proxies);
+
+      // Если нужно разрешать доменные имена прокси в IP-адреса
+      if (resolveProxyHostname) {
+        // Разрешаем все прокси последовательно
+        for (var i = 0; i < resolvedProxies.length; i++) {
+          resolvedProxies[i] = await _resolveProxyHost(resolvedProxies[i]);
+        }
+      }
+
       // Determine how to handle the URI host
       if (remoteDnsResolution) {
         // For remote DNS resolution, we use domain type and hostname directly
         // Returns instance of SocksSocket which implements Socket
         final client = connectWithRemoteDns(
-          proxies,
+          resolvedProxies,
           uri.host, // Use hostname directly instead of resolving to IP
           uri.port,
         );
@@ -67,12 +78,23 @@ class SocksTCPClient extends SocksSocket {
         );
       } else {
         // Original behavior - resolve IP locally
+        InternetAddress address;
+        try {
+          // Try to resolve the hostname to IP address
+          final addresses = await InternetAddress.lookup(
+            uri.host,
+          ).timeout(const Duration(seconds: 30));
+          if (addresses.isEmpty) {
+            throw Exception('Failed to resolve ${uri.host}');
+          }
+          address = addresses.first;
+        } catch (e) {
+          // If resolution fails, create a dummy address
+          address = InternetAddress(uri.host, type: InternetAddressType.unix);
+        }
+
         // Returns instance of SocksSocket which implements Socket
-        final client = connect(
-          proxies,
-          InternetAddress(uri.host, type: InternetAddressType.unix),
-          uri.port,
-        );
+        final client = connect(resolvedProxies, address, uri.port);
 
         // Secure connection after establishing Socks connection
         if (uri.scheme == 'https') {
@@ -96,6 +118,54 @@ class SocksTCPClient extends SocksSocket {
         );
       }
     };
+  }
+
+  /// Check if a string is an IP address
+  static bool _isIpAddress(String host) {
+    try {
+      // Try to parse as IPv4
+      final parts = host.split('.');
+      if (parts.length != 4) {
+        return false;
+      }
+
+      for (final part in parts) {
+        final num = int.tryParse(part);
+        if (num == null || num < 0 || num > 255) {
+          return false;
+        }
+      }
+
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Resolve proxy hostname to IP address
+  static Future<ProxySettings> _resolveProxyHost(ProxySettings proxy) async {
+    if (_isIpAddress(proxy.host.address)) {
+      return proxy; // If it's already an IP address, keep it as is
+    }
+
+    try {
+      final addresses = await InternetAddress.lookup(
+        proxy.host.address,
+      ).timeout(const Duration(seconds: 30));
+      if (addresses.isNotEmpty) {
+        // Create a new ProxySettings with IP address instead of hostname
+        return ProxySettings(
+          addresses.first,
+          proxy.port,
+          username: proxy.username,
+          password: proxy.password,
+        );
+      }
+    } catch (e) {
+      print('Failed to resolve proxy hostname ${proxy.host}: $e');
+    }
+
+    return proxy; // Return original proxy if resolution failed
   }
 
   /// Connects proxy client to given [proxies] with exit point of [host]\:[port].
