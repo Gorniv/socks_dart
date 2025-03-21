@@ -50,7 +50,9 @@ class UdpConnection extends SocksConnection implements Connection {
     client.where((event) => event == RawSocketEvent.read).listen((event) {
       final packet = client.receiveSocksPacket();
 
-      if (packet == null) return;
+      if (packet == null) {
+        return;
+      }
 
       // Filter packets if client provided ip address and port.
       if (desiredAddress.address == '0.0.0.0' &&
@@ -65,7 +67,9 @@ class UdpConnection extends SocksConnection implements Connection {
     remote.where((event) => event == RawSocketEvent.read).listen((event) {
       final datagram = remote.receive();
 
-      if (datagram == null) return;
+      if (datagram == null) {
+        return;
+      }
 
       final packet = SocksUpdPacket.create(
         datagram.address,
@@ -86,10 +90,14 @@ class UdpConnection extends SocksConnection implements Connection {
         .transform(
           StreamTransformer<RawSocketEvent, SocksUpdPacket>.fromHandlers(
             handleData: (event, sink) {
-              if (event != RawSocketEvent.read) return;
+              if (event != RawSocketEvent.read) {
+                return;
+              }
 
               final packet = client.receiveSocksPacket();
-              if (packet == null) return;
+              if (packet == null) {
+                return;
+              }
 
               sink.add(packet);
             },
@@ -104,10 +112,14 @@ class UdpConnection extends SocksConnection implements Connection {
         .transform(
           StreamTransformer<RawSocketEvent, SocksUpdPacket>.fromHandlers(
             handleData: (event, sink) {
-              if (event != RawSocketEvent.read) return;
+              if (event != RawSocketEvent.read) {
+                return;
+              }
 
               final datagram = proxyClient.receive();
-              if (datagram == null) return;
+              if (datagram == null) {
+                return;
+              }
 
               final packet = SocksUpdPacket.create(
                 datagram.address,

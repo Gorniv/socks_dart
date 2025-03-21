@@ -239,7 +239,8 @@ class SocksSocket with StreamMixin<Uint8List>, SocketMixin, ByteReader {
     }
   }
 
-  /// Handle socks command with IP address.
+  /// Handle socks command with IP address or String hostname that will be converted to IP.
+  /// This method expects an IP address or a String that represents an IP address.
   Future<void> _handleCommand(
     dynamic targetAddress,
     int targetPort,
