@@ -23,10 +23,7 @@ class SocksUpdPacket {
     }
 
     remoteAddress = InternetAddress.fromRawAddress(
-      bytes.buffer.asUint8List(
-        offset,
-        length,
-      ),
+      bytes.buffer.asUint8List(offset, length),
     );
     offset += length;
 
@@ -53,11 +50,11 @@ class SocksUpdPacket {
   }
 
   List<int> get socksPacket => [
-        0x00, 0x00, // reserved bytes
-        0x00, // fragment
-        AddressType.internetAddressTypeMap[remoteAddress.type]!.byte,
-        ...remoteAddress.rawAddress,
-        ...[(remotePort & 0xff00) >> 8, remotePort & 0x00ff],
-        ...data,
-      ];
+    0x00, 0x00, // reserved bytes
+    0x00, // fragment
+    AddressType.internetAddressTypeMap[remoteAddress.type]!.byte,
+    ...remoteAddress.rawAddress,
+    ...[(remotePort & 0xff00) >> 8, remotePort & 0x00ff],
+    ...data,
+  ];
 }

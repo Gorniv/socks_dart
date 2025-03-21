@@ -10,28 +10,23 @@ import 'socks_server.dart';
 
 /// Connected client connection emitted by [SocksServer] if client requested TCP connection.
 class TcpConnection extends SocksConnection implements Connection {
-  TcpConnection(this.connection, {super.authHandler, super.lookup}) : super(connection) {
+  TcpConnection(this.connection, {super.authHandler, super.lookup})
+    : super(connection) {
     absorbConnection(connection);
   }
 
   final SocksConnection connection;
 
   @override
-  Future<Socket?> accept({
-    bool? connect,
-    bool? allowIPv6,
-  }) async {
+  Future<Socket?> accept({bool? connect, bool? allowIPv6}) async {
     final Socket? target;
 
     final _connect = connect ?? false;
     final _allowIPv6 = allowIPv6 ?? false;
 
     if (_connect) {
-      if(!_allowIPv6 && desiredAddress.type == InternetAddressType.IPv6) {
-        add([
-          0x05,
-          CommandReplyCode.unsupportedAddressType.byte,
-        ]);
+      if (!_allowIPv6 && desiredAddress.type == InternetAddressType.IPv6) {
+        add([0x05, CommandReplyCode.unsupportedAddressType.byte]);
         return null;
       }
       try {
@@ -66,34 +61,36 @@ class TcpConnection extends SocksConnection implements Connection {
   }
 
   @override
-  Future<void> forward({
-    bool? allowIPv6,
-  }) async {
+  Future<void> forward({bool? allowIPv6}) async {
     // Accept proxy connection and connect to target
     final target = await accept(allowIPv6: allowIPv6, connect: true);
-    if (target == null) 
-      return;
+    if (target == null) return;
 
     // "Link" streams
-    unawaited(addStream(target)
-      ..then((value) {
-        close();  
-      }).ignore(),);
-    unawaited(target.addStream(this)
-      ..then((value) {
-        target.close();
-      }).ignore(),);
+    unawaited(
+      addStream(target)
+        ..then((value) {
+          close();
+        }).ignore(),
+    );
+    unawaited(
+      target.addStream(this)
+        ..then((value) {
+          target.close();
+        }).ignore(),
+    );
   }
 
   @override
   Future<void> redirect(ProxySettings proxy) async {
-    final client = await SocksTCPClient.connect([proxy], 
+    final client = await SocksTCPClient.connect(
+      [proxy],
       desiredAddress.type == InternetAddressType.unix
-        ? ((await InternetAddress.lookup(desiredAddress.address))[0])
-        : desiredAddress,
+          ? ((await InternetAddress.lookup(desiredAddress.address))[0])
+          : desiredAddress,
       desiredPort,
-      );
-    
+    );
+
     add([
       0x05, // Socks version
       0x00, // Succeeded
@@ -105,13 +102,17 @@ class TcpConnection extends SocksConnection implements Connection {
     await flush();
 
     // "Link" streams
-    unawaited(addStream(client)
-      ..then((value) {
-        close();  
-      }).ignore(),);
-    unawaited(client.addStream(this)
-      ..then((value) {
-        client.close();
-      }).ignore(),);
+    unawaited(
+      addStream(client)
+        ..then((value) {
+          close();
+        }).ignore(),
+    );
+    unawaited(
+      client.addStream(this)
+        ..then((value) {
+          client.close();
+        }).ignore(),
+    );
   }
 }

@@ -11,7 +11,8 @@ import 'socks_server.dart';
 
 /// Connected client connection emitted by [SocksServer] if client requested UDP connection.
 class UdpConnection extends SocksConnection implements Connection {
-  UdpConnection(this.connection, {super.authHandler, super.lookup}) : super(connection) {
+  UdpConnection(this.connection, {super.authHandler, super.lookup})
+    : super(connection) {
     absorbConnection(connection);
   }
 
@@ -22,8 +23,7 @@ class UdpConnection extends SocksConnection implements Connection {
     bool? connect,
     bool? allowIPv6,
   }) async {
-    final clientBoundSocket =
-        SocksUdpClientBoundSocket(
+    final clientBoundSocket = SocksUdpClientBoundSocket(
       await RawDatagramSocket.bind(InternetAddress.anyIPv4, 0),
     );
 
@@ -31,7 +31,7 @@ class UdpConnection extends SocksConnection implements Connection {
       0x05, // Socks version.
       0x00, // Succeeded.
       0x00, // Reserved byte.
-      0x01, // IPv4 
+      0x01, // IPv4
       0x00, 0x00, 0x00, 0x00, // 0.0.0.0
       // Convert short port to big endian byte list.
       (clientBoundSocket.port & 0xff00) >> 8, clientBoundSocket.port & 0xff,
@@ -42,24 +42,22 @@ class UdpConnection extends SocksConnection implements Connection {
   }
 
   @override
-  Future<void> forward({
-    bool? allowIPv6,
-  }) async {
+  Future<void> forward({bool? allowIPv6}) async {
     final client = await accept();
-    
-    final remote =  await RawDatagramSocket.bind(InternetAddress.anyIPv4, 0);
+
+    final remote = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 0);
 
     client.where((event) => event == RawSocketEvent.read).listen((event) {
       final packet = client.receiveSocksPacket();
 
-      if (packet == null) 
-        return;
-      
+      if (packet == null) return;
+
       // Filter packets if client provided ip address and port.
       if (desiredAddress.address == '0.0.0.0' &&
           (desiredAddress != packet.clientAddress ||
-              desiredPort != packet.clientPort)) 
-                return;
+              desiredPort != packet.clientPort)) {
+        return;
+      }
 
       remote.send(packet.data, packet.remoteAddress, packet.remotePort);
     });
@@ -67,12 +65,14 @@ class UdpConnection extends SocksConnection implements Connection {
     remote.where((event) => event == RawSocketEvent.read).listen((event) {
       final datagram = remote.receive();
 
-      if (datagram == null) 
-        return;
+      if (datagram == null) return;
 
-      final packet =
-          SocksUpdPacket.create(datagram.address, datagram.port, datagram.data);
-      
+      final packet = SocksUpdPacket.create(
+        datagram.address,
+        datagram.port,
+        datagram.data,
+      );
+
       client.send(packet.socksPacket, desiredAddress, desiredPort);
     });
   }
@@ -82,35 +82,47 @@ class UdpConnection extends SocksConnection implements Connection {
     final proxyClient = await SocksUDPClient.connect([proxy]);
     final client = await accept();
 
+    client
+        .transform(
+          StreamTransformer<RawSocketEvent, SocksUpdPacket>.fromHandlers(
+            handleData: (event, sink) {
+              if (event != RawSocketEvent.read) return;
 
-    client.transform(StreamTransformer<RawSocketEvent, SocksUpdPacket>.fromHandlers(
-      handleData: (event, sink) {
-        if(event != RawSocketEvent.read)
-          return;
-        
-        final packet = client.receiveSocksPacket();
-        if(packet == null) 
-          return;
+              final packet = client.receiveSocksPacket();
+              if (packet == null) return;
 
-        sink.add(packet);
-      },
-    ),).listen((packet) => proxyClient.send(packet.socksPacket, proxy.host, proxy.port));
+              sink.add(packet);
+            },
+          ),
+        )
+        .listen(
+          (packet) =>
+              proxyClient.send(packet.socksPacket, proxy.host, proxy.port),
+        );
 
-    proxyClient.transform(StreamTransformer<RawSocketEvent, SocksUpdPacket>.fromHandlers(
-      handleData: (event, sink) {
-        if(event != RawSocketEvent.read)
-          return;
-        
-        final datagram = proxyClient.receive();
-        if(datagram == null) 
-          return;
+    proxyClient
+        .transform(
+          StreamTransformer<RawSocketEvent, SocksUpdPacket>.fromHandlers(
+            handleData: (event, sink) {
+              if (event != RawSocketEvent.read) return;
 
-        final packet = SocksUpdPacket.create(datagram.address, datagram.port, datagram.data);
+              final datagram = proxyClient.receive();
+              if (datagram == null) return;
 
-        sink.add(packet);
-      },
-    ),).listen((packet) => proxyClient.send(packet.socksPacket, desiredAddress, desiredPort));
-    
+              final packet = SocksUpdPacket.create(
+                datagram.address,
+                datagram.port,
+                datagram.data,
+              );
+
+              sink.add(packet);
+            },
+          ),
+        )
+        .listen(
+          (packet) =>
+              proxyClient.send(packet.socksPacket, desiredAddress, desiredPort),
+        );
 
     throw UnimplementedError();
   }

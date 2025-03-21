@@ -10,7 +10,6 @@ import '../address_type.dart';
 import '../enums/authentication_method.dart';
 import '../enums/command_reply_code.dart';
 import '../enums/socks_connection_type.dart';
-import '../exceptions/client/connection_command_failed_exception.dart';
 import '../mixin/byte_reader.dart';
 import '../mixin/socket_mixin_.dart';
 import '../mixin/stream_mixin.dart';
@@ -59,22 +58,31 @@ class SocksSocket with StreamMixin<Uint8List>, SocketMixin, ByteReader {
     int port,
     SocksConnectionType type,
   ) async {
-    if(proxies.isEmpty) {
+    if (proxies.isEmpty) {
       throw ArgumentError.value(proxies, 'proxies', 'empty');
     }
 
     final socket = await Socket.connect(proxies.first.host, proxies.first.port);
-  
+
     final client = SocksSocket.protected(socket, type);
 
     try {
       await client._handshake(proxies.first);
 
-      for(var i = 1; i < proxies.length; i++) {
-        await client._handleCommand(proxies[i].host, proxies[i].port, SocksConnectionType.connect);
-        final response = await client._handleCommandResponse(SocksConnectionType.connect);
-        if(response.address != InternetAddress('0.0.0.0') || response.port != 0) {
-          throw UnimplementedError('Connect associated proxy not yet implemented.');
+      for (var i = 1; i < proxies.length; i++) {
+        await client._handleCommand(
+          proxies[i].host,
+          proxies[i].port,
+          SocksConnectionType.connect,
+        );
+        final response = await client._handleCommandResponse(
+          SocksConnectionType.connect,
+        );
+        if (response.address != InternetAddress('0.0.0.0') ||
+            response.port != 0) {
+          throw UnimplementedError(
+            'Connect associated proxy not yet implemented.',
+          );
         }
         await client._handshake(proxies[i]);
       }
@@ -82,34 +90,39 @@ class SocksSocket with StreamMixin<Uint8List>, SocketMixin, ByteReader {
       await client._handleCommand(address, port, type);
 
       final response = await client._handleCommandResponse(type);
-      
+
       return SocksClientInitializeResult(client, response);
     } on ByteReaderException catch (error, stackTrace) {
       socket.close().ignore();
-      throw SocksClientConnectionClosedException((error: error, stackTrace: stackTrace));
+      throw SocksClientConnectionClosedException((
+        error: error,
+        stackTrace: stackTrace,
+      ));
     }
   }
 
   // Apply tls-over-http
-  Future<SecureSocket> secure(dynamic host, {
+  Future<SecureSocket> secure(
+    dynamic host, {
     SecurityContext? context,
     bool Function(X509Certificate certificate)? onBadCertificate,
     void Function(String line)? keyLog,
     List<String>? supportedProtocols,
-    }) async {
-    final secureSocket = await SecureSocket.secure(socket,
-      host: host, 
+  }) async {
+    final secureSocket = await SecureSocket.secure(
+      socket,
+      host: host,
       context: context,
       onBadCertificate: onBadCertificate,
       keyLog: keyLog,
       supportedProtocols: supportedProtocols,
-    );  
+    );
     socket = secureSocket;
 
     _broadcast = socket.asBroadcastStream();
     return secureSocket;
   }
- 
+
   /// Socks handshake.
   Future<void> _handshake(ProxySettings proxy) async {
     final authenticationMethods = [
@@ -176,11 +189,10 @@ class SocksSocket with StreamMixin<Uint8List>, SocketMixin, ByteReader {
   /// Handle socks command.
   Future<void> _handleCommand(
     InternetAddress targetAddress,
-    int targetPort, 
+    int targetPort,
     SocksConnectionType type,
   ) async {
-    final addressType =
-        AddressType.internetAddressTypeMap[targetAddress.type]!;
+    final addressType = AddressType.internetAddressTypeMap[targetAddress.type]!;
     final rawAddress = targetAddress.rawAddress;
 
     add(
@@ -199,12 +211,13 @@ class SocksSocket with StreamMixin<Uint8List>, SocketMixin, ByteReader {
     await flush();
   }
 
-  Future<SocksCommandResponse> _handleCommandResponse(SocksConnectionType type) async {
+  Future<SocksCommandResponse> _handleCommandResponse(
+    SocksConnectionType type,
+  ) async {
     final version = await readUint8();
-    if(version != 0x05)
-      throw Exception('Unsupported Socks Version');
+    if (version != 0x05) throw Exception('Unsupported Socks Version');
     final commandResponse = CommandReplyCode.values[await readUint8()];
- 
+
     if (commandResponse != CommandReplyCode.succeed) {
       close().ignore();
       throw SocksClientConnectionCommandFailedException(commandResponse);
@@ -212,10 +225,16 @@ class SocksSocket with StreamMixin<Uint8List>, SocketMixin, ByteReader {
 
     // Read reserved byte.
     await readUint8();
-    
+
     final addressType = AddressType.byteMap[await readUint8()]!;
     final address = await getAddress(addressType, lookup);
     final port = await readUint16();
-    return SocksCommandResponse(version, commandResponse, addressType, address!, port);
+    return SocksCommandResponse(
+      version,
+      commandResponse,
+      addressType,
+      address!,
+      port,
+    );
   }
 }

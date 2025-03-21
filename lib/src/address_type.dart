@@ -19,10 +19,10 @@ enum AddressType {
 
   /// Byte to [AddressType] map.
   static Map<int, AddressType> get byteMap => const {
-        0x01: AddressType.ipv4,
-        0x03: AddressType.domain,
-        0x04: AddressType.ipv6,
-      };
+    0x01: AddressType.ipv4,
+    0x03: AddressType.domain,
+    0x04: AddressType.ipv6,
+  };
 
   /// [InternetAddressType] to [AddressType] map.
   static Map<InternetAddressType, AddressType> get internetAddressTypeMap =>

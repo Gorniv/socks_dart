@@ -31,29 +31,32 @@ mixin ByteReader {
   @protected
   Future<List<int>> readBytes(int size) async {
     final bytes = await data.readChunk(size);
-    if (bytes.length != size) 
-      throw ByteReaderException('stream has fewer bytes than expected. Size: ${bytes.length}, expected: $size.');
-    
+    if (bytes.length != size) {
+      throw ByteReaderException(
+        'stream has fewer bytes than expected. Size: ${bytes.length}, expected: $size.',
+      );
+    }
+
     return bytes;
   }
 
   /// Read various size bytes depending on [type] and parse IPv4/IPv6 address or lookup hostname.
   @protected
-  Future<InternetAddress?> getAddress(AddressType type, [LookupFunction lookup = InternetAddress.lookup]) async {
-    if (type == AddressType.domain) {   
+  Future<InternetAddress?> getAddress(
+    AddressType type, [
+    LookupFunction lookup = InternetAddress.lookup,
+  ]) async {
+    if (type == AddressType.domain) {
       final length = await readUint8();
       final domain = await readBytes(length);
 
       final addresses = await lookup(ascii.decode(domain));
-      if (addresses.isEmpty) 
-        return null;
+      if (addresses.isEmpty) return null;
       return addresses[0];
     }
 
     return InternetAddress.fromRawAddress(
-      Uint8List.fromList(
-        await readBytes(type == AddressType.ipv4 ? 4 : 16),
-      ),
+      Uint8List.fromList(await readBytes(type == AddressType.ipv4 ? 4 : 16)),
     );
   }
 }

@@ -13,7 +13,9 @@ void main() async {
   final client = HttpClient();
 
   // Assign connection factory
-  SocksTCPClient.assignToHttpClientWithSecureOptions(client, proxies, 
+  SocksTCPClient.assignToHttpClientWithSecureOptions(
+    client,
+    proxies,
     keyLog: print,
   );
 

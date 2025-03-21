@@ -15,8 +15,7 @@ mixin StreamMixin<T> implements Stream<T> {
   Stream<T> asBroadcastStream({
     void Function(StreamSubscription<T> subscription)? onListen,
     void Function(StreamSubscription<T> subscription)? onCancel,
-  }) =>
-      stream.asBroadcastStream(onListen: onListen, onCancel: onCancel);
+  }) => stream.asBroadcastStream(onListen: onListen, onCancel: onCancel);
 
   @override
   Stream<E> asyncExpand<E>(Stream<E>? Function(T event) convert) =>
@@ -60,8 +59,7 @@ mixin StreamMixin<T> implements Stream<T> {
   Future<S> fold<S>(
     S initialValue,
     S Function(S previous, T element) combine,
-  ) =>
-      stream.fold(initialValue, combine);
+  ) => stream.fold(initialValue, combine);
 
   @override
   Future<dynamic> forEach(void Function(T element) action) =>
@@ -71,8 +69,7 @@ mixin StreamMixin<T> implements Stream<T> {
   Stream<T> handleError(
     Function onError, {
     bool Function(dynamic error)? test,
-  }) =>
-      stream.handleError(onError, test: test);
+  }) => stream.handleError(onError, test: test);
 
   @override
   bool get isBroadcast => stream.isBroadcast;
@@ -99,8 +96,7 @@ mixin StreamMixin<T> implements Stream<T> {
     Function? onError,
     void Function()? onDone,
     bool? cancelOnError,
-  }) =>
-      stream.listen(onData, onDone: onDone, onError: onError);
+  }) => stream.listen(onData, onDone: onDone, onError: onError);
 
   @override
   Stream<S> map<S>(S Function(T event) convert) => stream.map(convert);
@@ -120,8 +116,7 @@ mixin StreamMixin<T> implements Stream<T> {
   Future<T> singleWhere(
     bool Function(T element) test, {
     T Function()? orElse,
-  }) =>
-      stream.singleWhere(test, orElse: orElse);
+  }) => stream.singleWhere(test, orElse: orElse);
 
   @override
   Stream<T> skip(int count) => stream.skip(count);
@@ -139,8 +134,7 @@ mixin StreamMixin<T> implements Stream<T> {
   Stream<T> timeout(
     Duration timeLimit, {
     void Function(EventSink<T> sink)? onTimeout,
-  }) =>
-      stream.timeout(timeLimit, onTimeout: onTimeout);
+  }) => stream.timeout(timeLimit, onTimeout: onTimeout);
 
   @override
   Future<List<T>> toList() => stream.toList();

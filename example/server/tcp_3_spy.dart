@@ -21,8 +21,7 @@ void main() {
   proxy.connections.listen((connection) async {
     if (connection is TcpConnection) {
       final target = await connection.accept(connect: true);
-      if (target == null) 
-        return;
+      if (target == null) return;
 
       // "Link" streams
       target.addStream(connection.transform(printer('client: '))).ignore();

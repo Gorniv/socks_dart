@@ -12,7 +12,8 @@ final users = {
 void main() {
   // Create server instance
   final proxy = SocksServer(
-    authHandler: (username, password) => users[username]?.secureCompare(password.hash()) ?? false,
+    authHandler: (username, password) =>
+        users[username]?.secureCompare(password.hash()) ?? false,
   );
 
   // Listen to all tcp and udp connections

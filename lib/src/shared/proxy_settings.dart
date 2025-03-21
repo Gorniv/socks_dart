@@ -3,12 +3,7 @@ import 'dart:io';
 /// Stores information to connect to socks server.
 class ProxySettings {
   /// Creates proxy settings object
-  ProxySettings(
-    this.host,
-    this.port, {
-    this.password,
-    this.username,
-  });
+  ProxySettings(this.host, this.port, {this.password, this.username});
 
   /// Proxy host
   final InternetAddress host;

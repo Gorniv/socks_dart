@@ -9,7 +9,8 @@ void main() {
 
   // Listen to all tcp and udp connections
   proxy.connections.listen((connection) async {
-    print('${connection.address.address}:${connection.port} ==> ${connection.desiredAddress.address}:${connection.desiredPort}');
+    print(
+        '${connection.address.address}:${connection.port} ==> ${connection.desiredAddress.address}:${connection.desiredPort}');
     // Apply default handler
     await connection.forward(allowIPv6: false);
   }).onError(print);

@@ -12,7 +12,11 @@ import 'socks_command_response.dart';
 
 /// [Socket] imitation for socks TCP connection.
 class SocksUDPClient with StreamMixin<RawSocketEvent>, RawDatagramSocketMixin {
-  SocksUDPClient._internal(this.rawDatagramSocket, this.tcpSocket, this.commandResponse);
+  SocksUDPClient._internal(
+    this.rawDatagramSocket,
+    this.tcpSocket,
+    this.commandResponse,
+  );
 
   final Socket tcpSocket;
   final SocksCommandResponse commandResponse;
@@ -32,8 +36,7 @@ class SocksUDPClient with StreamMixin<RawSocketEvent>, RawDatagramSocketMixin {
   @override
   Datagram? receive() {
     final actual = super.receive();
-    if (actual == null) 
-      return null;
+    if (actual == null) return null;
     final packet = SocksUpdPacket.parse(actual.data);
     return Datagram(packet.data, packet.remoteAddress, packet.remotePort);
   }
@@ -47,19 +50,35 @@ class SocksUDPClient with StreamMixin<RawSocketEvent>, RawDatagramSocketMixin {
 
   @override
   int send(List<int> buffer, InternetAddress address, int port) => super.send(
-    SocksUpdPacket.create(address, port, Uint8List.fromList(buffer)).socksPacket,
+    SocksUpdPacket.create(
+      address,
+      port,
+      Uint8List.fromList(buffer),
+    ).socksPacket,
     commandResponse.address,
     commandResponse.port,
   );
 
-  static Future<SocksUDPClient> connect(List<ProxySettings> proxies) async {     
-    final rawDatagramSocket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 0);
+  static Future<SocksUDPClient> connect(List<ProxySettings> proxies) async {
+    final rawDatagramSocket = await RawDatagramSocket.bind(
+      InternetAddress.anyIPv4,
+      0,
+    );
 
-    final result = await SocksSocket.initialize(proxies, InternetAddress('0.0.0.0'), rawDatagramSocket.port, SocksConnectionType.associate);
+    final result = await SocksSocket.initialize(
+      proxies,
+      InternetAddress('0.0.0.0'),
+      rawDatagramSocket.port,
+      SocksConnectionType.associate,
+    );
     // return client.socket;
 
     print(result);
 
-    return SocksUDPClient._internal(rawDatagramSocket, result.socket, result.response);
+    return SocksUDPClient._internal(
+      rawDatagramSocket,
+      result.socket,
+      result.response,
+    );
   }
 }

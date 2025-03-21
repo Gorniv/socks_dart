@@ -16,17 +16,22 @@ void main() async {
     // Connect to proxy
     proxySocket = await SocksTCPClient.connect(
       [
-        ProxySettings(InternetAddress.loopbackIPv4, 1080, username: 'username', password: 'password'),
+        ProxySettings(
+          InternetAddress.loopbackIPv4,
+          1080,
+          username: 'username',
+          password: 'password',
+        ),
       ],
       address,
       port,
     );
   } on SocksClientConnectionClosedException catch (error) {
     // Underlying socket is already closed if it was opened by this point.
-    
+
     // Be aware that other server (server of this packet tries to minimize this)
     // can close connection at any time without sending response to client.
-    
+
     print(error);
     return;
   } on SocksClientConnectionCommandFailedException catch (error) {
@@ -42,15 +47,18 @@ void main() async {
 
   // Receive data from proxy
   proxySocket
-    ..listen((event) {
-      print(ascii.decode(event));
+    ..listen(
+      (event) {
+        print(ascii.decode(event));
 
-      exit(0);
-    }, onError: (Object? error, StackTrace stackTrace) {
-      print(error.runtimeType);
-      print(stackTrace);
-      exit(0);
-    },)
+        exit(0);
+      },
+      onError: (Object? error, StackTrace stackTrace) {
+        print(error.runtimeType);
+        print(stackTrace);
+        exit(0);
+      },
+    )
 
     // Send data to client
     ..write(

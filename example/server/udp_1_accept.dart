@@ -12,40 +12,40 @@ void main() {
     if (connection is TcpConnection) {
       await connection.forward();
     } else if (connection is UdpConnection) {
-    final client = await connection.accept();
-    // Create socket to listen data from client.
-    final remote = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 0);
+      final client = await connection.accept();
+      // Create socket to listen data from client.
+      final remote = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 0);
 
-    // Listen for datagram from client.
-    client.where((event) => event == RawSocketEvent.read).listen((event) {
-      final packet = client.receiveSocksPacket();
+      // Listen for datagram from client.
+      client.where((event) => event == RawSocketEvent.read).listen((event) {
+        final packet = client.receiveSocksPacket();
 
-      if (packet == null) 
-        return;
-      
-      // Filter packets if client provided ip address and port.
-      if (connection.desiredAddress.address == '0.0.0.0' &&
-          (connection.desiredAddress != packet.clientAddress ||
-              connection.desiredPort != packet.clientPort)) 
-                return;
+        if (packet == null) return;
 
-      remote.send(packet.data, packet.remoteAddress, packet.remotePort);
-    });
+        // Filter packets if client provided ip address and port.
+        if (connection.desiredAddress.address == '0.0.0.0' &&
+            (connection.desiredAddress != packet.clientAddress ||
+                connection.desiredPort != packet.clientPort)) {
+          return;
+        }
 
-    // Listen for datagram from remote.
-    remote.where((event) => event == RawSocketEvent.read).listen((event) {
-      final datagram = remote.receive();
+        remote.send(packet.data, packet.remoteAddress, packet.remotePort);
+      });
 
-      if (datagram == null) 
-        return;
+      // Listen for datagram from remote.
+      remote.where((event) => event == RawSocketEvent.read).listen((event) {
+        final datagram = remote.receive();
 
-      // Create socks packet.
-      final packet =
-          SocksUpdPacket.create(datagram.address, datagram.port, datagram.data);
-      
-      // Send socks packet to proxy.
-      client.send(packet.socksPacket, connection.desiredAddress, connection.desiredPort);
-    });
+        if (datagram == null) return;
+
+        // Create socks packet.
+        final packet = SocksUpdPacket.create(
+            datagram.address, datagram.port, datagram.data);
+
+        // Send socks packet to proxy.
+        client.send(packet.socksPacket, connection.desiredAddress,
+            connection.desiredPort);
+      });
     }
   });
 
